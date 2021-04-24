@@ -1,19 +1,113 @@
 #include <windows.h>
 #include <GL/gl.h>
+#include <GL/glu.h>
 #include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <math.h>
+#include <fcntl.h>
 
 HWND hwnd;
+double seconds;
 
 void display() {
-    glClear(GL_COLOR_BUFFER_BIT);
-    glBegin(GL_TRIANGLES);
-    glColor3f(1.0f, 0.0f, 0.0f);
-    glVertex2i(0,  1);
-    glColor3f(0.0f, 1.0f, 0.0f);
-    glVertex2i(-1, -1);
-    glColor3f(0.0f, 0.0f, 1.0f);
-    glVertex2i(1, -1);
-    glEnd();
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear color and depth buffers
+   glMatrixMode(GL_MODELVIEW);     // To operate on model-view matrix
+ 
+   // Render a color-cube consisting of 6 quads with different colors
+   glLoadIdentity();                 // Reset the model-view matrix
+   glTranslatef(1.5f, 0.0f, -7.0f);  // Move right and into the screen
+ 
+   glBegin(GL_QUADS);                // Begin drawing the color cube with 6 quads
+      // Top face (y = 1.0f)
+      // Define vertices in counter-clockwise (CCW) order with normal pointing out
+      glColor3f(0.0f, 1.0f, 0.0f);     // Green
+      glVertex3f( 1.0f, 1.0f, -1.0f);
+      glVertex3f(-1.0f, 1.0f, -1.0f);
+      glVertex3f(-1.0f, 1.0f,  1.0f);
+      glVertex3f( 1.0f, 1.0f,  1.0f);
+ 
+      // Bottom face (y = -1.0f)
+      glColor3f(1.0f, 0.5f, 0.0f);     // Orange
+      glVertex3f( 1.0f, -1.0f,  1.0f);
+      glVertex3f(-1.0f, -1.0f,  1.0f);
+      glVertex3f(-1.0f, -1.0f, -1.0f);
+      glVertex3f( 1.0f, -1.0f, -1.0f);
+ 
+      // Front face  (z = 1.0f)
+      glColor3f(1.0f, 1.0f, 1.0f);     // Red
+
+      glTexCoord2d(4/16.0, 0);
+      glVertex3f( 1.0f,  1.0f, 1.0f);
+
+      glTexCoord2d(3/16.0, 0);
+      glVertex3f(-1.0f,  1.0f, 1.0f);
+
+      glTexCoord2d(3/16.0, 1/16.0);
+      glVertex3f(-1.0f, -1.0f, 1.0f);
+
+      glTexCoord2d(4/16.0, 1/16.0);
+      glVertex3f( 1.0f, -1.0f, 1.0f);
+ 
+      // Back face (z = -1.0f)
+      glColor3f(1.0f, 1.0f, 0.0f);     // Yellow
+      glVertex3f( 1.0f, -1.0f, -1.0f);
+      glVertex3f(-1.0f, -1.0f, -1.0f);
+      glVertex3f(-1.0f,  1.0f, -1.0f);
+      glVertex3f( 1.0f,  1.0f, -1.0f);
+ 
+      // Left face (x = -1.0f)
+      glColor3f(0.0f, 0.0f, 1.0f);     // Blue
+      glVertex3f(-1.0f,  1.0f,  1.0f);
+      glVertex3f(-1.0f,  1.0f, -1.0f);
+      glVertex3f(-1.0f, -1.0f, -1.0f);
+      glVertex3f(-1.0f, -1.0f,  1.0f);
+ 
+      // Right face (x = 1.0f)
+      glColor3f(1.0f, 0.0f, 1.0f);     // Magenta
+      glVertex3f(1.0f,  1.0f, -1.0f);
+      glVertex3f(1.0f,  1.0f,  1.0f);
+      glVertex3f(1.0f, -1.0f,  1.0f);
+      glVertex3f(1.0f, -1.0f, -1.0f);
+   glEnd();  // End of drawing color-cube
+ 
+   // Render a pyramid consists of 4 triangles
+   glLoadIdentity();                  // Reset the model-view matrix
+   glTranslatef(-1.5f, 0.0f, -6.0f);  // Move left and into the screen
+ 
+   glBegin(GL_TRIANGLES);           // Begin drawing the pyramid with 4 triangles
+      // Front
+      glColor3f(1.0f, 0.0f, 0.0f);     // Red
+      glVertex3f( 0.0f, 1.0f, 0.0f);
+      glColor3f(0.0f, 1.0f, 0.0f);     // Green
+      glVertex3f(-1.0f, -1.0f, 1.0f);
+      glColor3f(0.0f, 0.0f, 1.0f);     // Blue
+      glVertex3f(1.0f, -1.0f, 1.0f);
+ 
+      // Right
+      glColor3f(1.0f, 0.0f, 0.0f);     // Red
+      glVertex3f(0.0f, 1.0f, 0.0f);
+      glColor3f(0.0f, 0.0f, 1.0f);     // Blue
+      glVertex3f(1.0f, -1.0f, 1.0f);
+      glColor3f(0.0f, 1.0f, 0.0f);     // Green
+      glVertex3f(1.0f, -1.0f, -1.0f);
+ 
+      // Back
+      glColor3f(1.0f, 0.0f, 0.0f);     // Red
+      glVertex3f(0.0f, 1.0f, 0.0f);
+      glColor3f(0.0f, 1.0f, 0.0f);     // Green
+      glVertex3f(1.0f, -1.0f, -1.0f);
+      glColor3f(0.0f, 0.0f, 1.0f);     // Blue
+      glVertex3f(-1.0f, -1.0f, -1.0f);
+ 
+      // Left
+      glColor3f(1.0f,0.0f,0.0f);       // Red
+      glVertex3f( 0.0f, 1.0f, 0.0f);
+      glColor3f(0.0f,0.0f,1.0f);       // Blue
+      glVertex3f(-1.0f,-1.0f,-1.0f);
+      glColor3f(0.0f,1.0f,0.0f);       // Green
+      glVertex3f(-1.0f,-1.0f, 1.0f);
+   glEnd();   // Done drawing the pyramid
 	HDC hdc = GetDC(hwnd);
     SwapBuffers(hdc);
 	ReleaseDC(hwnd, hdc);
@@ -29,17 +123,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			    PostQuitMessage(0);
 			    return 0;
 			}
-	    case WM_PAINT: {
-	    	PAINTSTRUCT ps;
-			display();
-			BeginPaint(hwnd, &ps);
-			EndPaint(hwnd, &ps);
+	    case WM_SIZE: {
+			int width = LOWORD(lParam);
+			int height = HIWORD(lParam);
+			if (height == 0) height = 1; // To prevent divide by 0
+			GLfloat aspect = (GLfloat)width / (GLfloat)height;
+			glViewport(0, 0, width, height);
+			glMatrixMode(GL_PROJECTION);
+			glLoadIdentity();
+			gluPerspective(45.0f, aspect, 0.1f, 100.0f);
 			return 0;
-	    }
-	    case WM_SIZE:
-			glViewport(0, 0, LOWORD(lParam), HIWORD(lParam));
-			PostMessage(hwnd, WM_PAINT, 0, 0);
-			return 0;
+		}
 	}
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
@@ -82,12 +176,49 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	wglMakeCurrent(hdc, hglrc);
 	ReleaseDC(hwnd, hdc);
 
+	// https://minecraft.fandom.com/wiki/Terrain.png
+	char *filename = "./terrain.bmp";
+	int fd;
+	if ((fd = open(filename, O_RDONLY|O_BINARY)) < 0) {
+		fprintf(stderr, "open: %s: %s\n", strerror(errno), filename);
+		exit(EXIT_FAILURE);
+	}
+	uint8_t *tmp = malloc(256*256*4);
+	uint8_t *pixels = malloc(256*256*4);
+	lseek(fd, 0x8a, SEEK_SET);
+	read(fd, tmp, 256*256*4);
+	for (int y=0; y<256; y++) {
+		for (int x=0; x<256; x++) {
+			uint8_t *src = tmp + (255-y)*256*4 + x*4;
+			uint8_t *dst = pixels + y*256*4 + x*4;
+			dst[0] = src[2];
+			dst[1] = src[1];
+			dst[2] = src[0];
+			dst[3] = src[3];
+		}
+	}
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 256, 0,
+                    GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_DEPTH_TEST);
+
 	ShowWindow(hwnd, cmdshow);
 
 	MSG msg = {0};
-	while (GetMessage(&msg, NULL, 0, 0) > 0) {
-	    TranslateMessage(&msg);
-	    DispatchMessage(&msg);
+	while (true) {
+		while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+		if (msg.message == WM_QUIT) {
+			break;
+		}
+		display();
+		PostMessage(hwnd, WM_PAINT, 0, 0);
+		Sleep(16);
+		seconds += 0.016;
 	}
 
 	// Cleanup
