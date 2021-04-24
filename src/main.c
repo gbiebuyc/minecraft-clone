@@ -10,67 +10,95 @@
 HWND hwnd;
 double seconds;
 
-void display() {
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear color and depth buffers
+void draw_block(int top, int bottom, int front, int back, int left, int right) {
    glMatrixMode(GL_MODELVIEW);     // To operate on model-view matrix
  
    // Render a color-cube consisting of 6 quads with different colors
    glLoadIdentity();                 // Reset the model-view matrix
    glTranslatef(1.5f, 0.0f, -7.0f);  // Move right and into the screen
+
+   glRotated(seconds*100, 0, 1, 0);
  
+	glColor3f(1.0f, 1.0f, 1.0f); // White
+
+    double x;
+    double y;
+
    glBegin(GL_QUADS);                // Begin drawing the color cube with 6 quads
-      // Top face (y = 1.0f)
       // Define vertices in counter-clockwise (CCW) order with normal pointing out
-      glColor3f(0.0f, 1.0f, 0.0f);     // Green
+      x = top % 16;
+      y = top / 16;
+      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
       glVertex3f( 1.0f, 1.0f, -1.0f);
+      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
       glVertex3f(-1.0f, 1.0f, -1.0f);
+      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
       glVertex3f(-1.0f, 1.0f,  1.0f);
+      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
       glVertex3f( 1.0f, 1.0f,  1.0f);
  
-      // Bottom face (y = -1.0f)
-      glColor3f(1.0f, 0.5f, 0.0f);     // Orange
+      x = bottom % 16;
+      y = bottom / 16;
+      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
       glVertex3f( 1.0f, -1.0f,  1.0f);
+      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
       glVertex3f(-1.0f, -1.0f,  1.0f);
+      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
       glVertex3f(-1.0f, -1.0f, -1.0f);
+      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
       glVertex3f( 1.0f, -1.0f, -1.0f);
  
-      // Front face  (z = 1.0f)
-      glColor3f(1.0f, 1.0f, 1.0f);     // Red
-
-      glTexCoord2d(4/16.0, 0);
+      x = front % 16;
+      y = front / 16;
+      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
       glVertex3f( 1.0f,  1.0f, 1.0f);
-
-      glTexCoord2d(3/16.0, 0);
+      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
       glVertex3f(-1.0f,  1.0f, 1.0f);
-
-      glTexCoord2d(3/16.0, 1/16.0);
+      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
       glVertex3f(-1.0f, -1.0f, 1.0f);
-
-      glTexCoord2d(4/16.0, 1/16.0);
+      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
       glVertex3f( 1.0f, -1.0f, 1.0f);
  
-      // Back face (z = -1.0f)
-      glColor3f(1.0f, 1.0f, 0.0f);     // Yellow
-      glVertex3f( 1.0f, -1.0f, -1.0f);
-      glVertex3f(-1.0f, -1.0f, -1.0f);
+      x = back % 16;
+      y = back / 16;
+      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
       glVertex3f(-1.0f,  1.0f, -1.0f);
+      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
       glVertex3f( 1.0f,  1.0f, -1.0f);
- 
-      // Left face (x = -1.0f)
-      glColor3f(0.0f, 0.0f, 1.0f);     // Blue
-      glVertex3f(-1.0f,  1.0f,  1.0f);
-      glVertex3f(-1.0f,  1.0f, -1.0f);
+      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+      glVertex3f( 1.0f, -1.0f, -1.0f);
+      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
       glVertex3f(-1.0f, -1.0f, -1.0f);
+ 
+      x = left % 16;
+      y = left / 16;
+      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+      glVertex3f(-1.0f,  1.0f,  1.0f);
+      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+      glVertex3f(-1.0f,  1.0f, -1.0f);
+      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+      glVertex3f(-1.0f, -1.0f, -1.0f);
+      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
       glVertex3f(-1.0f, -1.0f,  1.0f);
  
-      // Right face (x = 1.0f)
-      glColor3f(1.0f, 0.0f, 1.0f);     // Magenta
+      x = right % 16;
+      y = right / 16;
+      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
       glVertex3f(1.0f,  1.0f, -1.0f);
+      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
       glVertex3f(1.0f,  1.0f,  1.0f);
+      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
       glVertex3f(1.0f, -1.0f,  1.0f);
+      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
       glVertex3f(1.0f, -1.0f, -1.0f);
    glEnd();  // End of drawing color-cube
+}
+
+void display() {
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear color and depth buffers
  
+   draw_block(0, 2, 3, 3, 3, 3);
+
    // Render a pyramid consists of 4 triangles
    glLoadIdentity();                  // Reset the model-view matrix
    glTranslatef(-1.5f, 0.0f, -6.0f);  // Move left and into the screen
