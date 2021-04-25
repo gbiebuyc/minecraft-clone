@@ -9,16 +9,14 @@
 
 HWND hwnd;
 double seconds;
+double rotx, roty;
+double posx, posy;
 
 void draw_block(int top, int bottom, int front, int back, int left, int right) {
-   glMatrixMode(GL_MODELVIEW);     // To operate on model-view matrix
  
    // Render a color-cube consisting of 6 quads with different colors
-   glLoadIdentity();                 // Reset the model-view matrix
    glTranslatef(1.5f, 0.0f, -7.0f);  // Move right and into the screen
 
-   glRotated(seconds*100, 0, 1, 0);
- 
 	glColor3f(1.0f, 1.0f, 1.0f); // White
 
     double x;
@@ -95,12 +93,16 @@ void draw_block(int top, int bottom, int front, int back, int left, int right) {
 }
 
 void display() {
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear color and depth buffers
- 
+   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   glMatrixMode(GL_MODELVIEW);
+   glLoadIdentity();
+   glRotated(rotx, 1, 1, 0);
+   glRotated(roty, 0, 1, 0);
+   glTranslated(posx, 0, posy);
+
    draw_block(0, 2, 3, 3, 3, 3);
 
    // Render a pyramid consists of 4 triangles
-   glLoadIdentity();                  // Reset the model-view matrix
    glTranslatef(-1.5f, 0.0f, -6.0f);  // Move left and into the screen
  
    glBegin(GL_TRIANGLES);           // Begin drawing the pyramid with 4 triangles
@@ -149,8 +151,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		case WM_KEYDOWN:
 			if (wParam == VK_ESCAPE) {
 			    PostQuitMessage(0);
-			    return 0;
 			}
+			return 0;
 	    case WM_SIZE: {
 			int width = LOWORD(lParam);
 			int height = HIWORD(lParam);
@@ -234,21 +236,58 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	ShowWindow(hwnd, cmdshow);
 
+	ShowCursor(false);
+	RECT rect;
+	GetWindowRect(hwnd, &rect);
+	int center_x = rect.left + (rect.right - rect.left) / 2;
+	int center_y = rect.top + (rect.bottom - rect.top) / 2;
+	SetCursorPos(center_x, center_y);
+
 	MSG msg = {0};
 	while (true) {
 		while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
+			if (msg.message == WM_QUIT) {
+				goto End;
+			}
 		}
-		if (msg.message == WM_QUIT) {
-			break;
+
+		GetWindowRect(hwnd, &rect);
+		int center_x = rect.left + (rect.right - rect.left) / 2;
+		int center_y = rect.top + (rect.bottom - rect.top) / 2;
+		POINT p;
+		GetCursorPos(&p);
+		#define ROT_SPEED 0.1
+		roty += (p.x - center_x) * ROT_SPEED;
+		rotx += (p.y - center_y) * ROT_SPEED;
+		SetCursorPos(center_x, center_y);
+
+		#define MOVE_SPEED 0.3
+		if (GetAsyncKeyState('Z')) {
+			posx -= sin(roty * M_PI / 180) * MOVE_SPEED;
+			posy += cos(roty * M_PI / 180) * MOVE_SPEED;
 		}
+		if (GetAsyncKeyState('S')) {
+			posx += sin(roty * M_PI / 180) * MOVE_SPEED;
+			posy -= cos(roty * M_PI / 180) * MOVE_SPEED;
+		}
+		if (GetAsyncKeyState('Q')) {
+			posx += cos(roty * M_PI / 180) * MOVE_SPEED;
+			posy += sin(roty * M_PI / 180) * MOVE_SPEED;
+		}
+		if (GetAsyncKeyState('D')) {
+			posx -= cos(roty * M_PI / 180) * MOVE_SPEED;
+			posy -= sin(roty * M_PI / 180) * MOVE_SPEED;
+		}
+
 		display();
 		PostMessage(hwnd, WM_PAINT, 0, 0);
 		Sleep(16);
 		seconds += 0.016;
 	}
 
+End:
 	// Cleanup
 	wglMakeCurrent(NULL, NULL);
 	wglDeleteContext(hglrc);
