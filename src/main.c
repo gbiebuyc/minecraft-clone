@@ -7,139 +7,114 @@
 #include <math.h>
 #include <fcntl.h>
 
+#define MAP_DIMENSION 64
+enum {
+	BLOCK_EMPTY,
+	BLOCK_STONE,
+	BLOCK_DIRT,
+	BLOCK_GRASS,
+};
 HWND hwnd;
 double seconds;
 double rotx, roty;
-double posx, posy;
+double posx, posy, posz;
+uint8_t map[MAP_DIMENSION][MAP_DIMENSION][MAP_DIMENSION];
 
 void draw_block(int top, int bottom, int front, int back, int left, int right) {
- 
-   // Render a color-cube consisting of 6 quads with different colors
-   glTranslatef(1.5f, 0.0f, -7.0f);  // Move right and into the screen
-
+	double x, y;
 	glColor3f(1.0f, 1.0f, 1.0f); // White
+	glBegin(GL_QUADS);
 
-    double x;
-    double y;
+	x = top % 16;
+	y = top / 16;
+	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+	glVertex3f( 1.0f, 1.0f, -1.0f);
+	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+	glVertex3f(-1.0f, 1.0f, -1.0f);
+	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+	glVertex3f(-1.0f, 1.0f,  1.0f);
+	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
+	glVertex3f( 1.0f, 1.0f,  1.0f);
 
-   glBegin(GL_QUADS);                // Begin drawing the color cube with 6 quads
-      // Define vertices in counter-clockwise (CCW) order with normal pointing out
-      x = top % 16;
-      y = top / 16;
-      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-      glVertex3f( 1.0f, 1.0f, -1.0f);
-      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-      glVertex3f(-1.0f, 1.0f, -1.0f);
-      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-      glVertex3f(-1.0f, 1.0f,  1.0f);
-      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-      glVertex3f( 1.0f, 1.0f,  1.0f);
- 
-      x = bottom % 16;
-      y = bottom / 16;
-      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-      glVertex3f( 1.0f, -1.0f,  1.0f);
-      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-      glVertex3f(-1.0f, -1.0f,  1.0f);
-      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-      glVertex3f(-1.0f, -1.0f, -1.0f);
-      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-      glVertex3f( 1.0f, -1.0f, -1.0f);
- 
-      x = front % 16;
-      y = front / 16;
-      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-      glVertex3f( 1.0f,  1.0f, 1.0f);
-      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-      glVertex3f(-1.0f,  1.0f, 1.0f);
-      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-      glVertex3f(-1.0f, -1.0f, 1.0f);
-      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-      glVertex3f( 1.0f, -1.0f, 1.0f);
- 
-      x = back % 16;
-      y = back / 16;
-      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-      glVertex3f(-1.0f,  1.0f, -1.0f);
-      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-      glVertex3f( 1.0f,  1.0f, -1.0f);
-      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-      glVertex3f( 1.0f, -1.0f, -1.0f);
-      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-      glVertex3f(-1.0f, -1.0f, -1.0f);
- 
-      x = left % 16;
-      y = left / 16;
-      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-      glVertex3f(-1.0f,  1.0f,  1.0f);
-      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-      glVertex3f(-1.0f,  1.0f, -1.0f);
-      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-      glVertex3f(-1.0f, -1.0f, -1.0f);
-      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-      glVertex3f(-1.0f, -1.0f,  1.0f);
- 
-      x = right % 16;
-      y = right / 16;
-      glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-      glVertex3f(1.0f,  1.0f, -1.0f);
-      glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-      glVertex3f(1.0f,  1.0f,  1.0f);
-      glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-      glVertex3f(1.0f, -1.0f,  1.0f);
-      glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-      glVertex3f(1.0f, -1.0f, -1.0f);
-   glEnd();  // End of drawing color-cube
+	x = bottom % 16;
+	y = bottom / 16;
+	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+	glVertex3f( 1.0f, -1.0f,  1.0f);
+	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+	glVertex3f(-1.0f, -1.0f,  1.0f);
+	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+	glVertex3f(-1.0f, -1.0f, -1.0f);
+	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
+	glVertex3f( 1.0f, -1.0f, -1.0f);
+
+	x = front % 16;
+	y = front / 16;
+	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+	glVertex3f( 1.0f,  1.0f, 1.0f);
+	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+	glVertex3f(-1.0f,  1.0f, 1.0f);
+	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+	glVertex3f(-1.0f, -1.0f, 1.0f);
+	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
+	glVertex3f( 1.0f, -1.0f, 1.0f);
+
+	x = back % 16;
+	y = back / 16;
+	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+	glVertex3f(-1.0f,  1.0f, -1.0f);
+	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+	glVertex3f( 1.0f,  1.0f, -1.0f);
+	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+	glVertex3f( 1.0f, -1.0f, -1.0f);
+	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
+	glVertex3f(-1.0f, -1.0f, -1.0f);
+
+	x = left % 16;
+	y = left / 16;
+	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+	glVertex3f(-1.0f,  1.0f,  1.0f);
+	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+	glVertex3f(-1.0f,  1.0f, -1.0f);
+	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+	glVertex3f(-1.0f, -1.0f, -1.0f);
+	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
+	glVertex3f(-1.0f, -1.0f,  1.0f);
+
+	x = right % 16;
+	y = right / 16;
+	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+	glVertex3f(1.0f,  1.0f, -1.0f);
+	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+	glVertex3f(1.0f,  1.0f,  1.0f);
+	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+	glVertex3f(1.0f, -1.0f,  1.0f);
+	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
+	glVertex3f(1.0f, -1.0f, -1.0f);
+
+	glEnd();
 }
 
 void display() {
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-   glMatrixMode(GL_MODELVIEW);
-   glLoadIdentity();
-   glRotated(rotx, 1, 1, 0);
-   glRotated(roty, 0, 1, 0);
-   glTranslated(posx, 0, posy);
-
-   draw_block(0, 2, 3, 3, 3, 3);
-
-   // Render a pyramid consists of 4 triangles
-   glTranslatef(-1.5f, 0.0f, -6.0f);  // Move left and into the screen
- 
-   glBegin(GL_TRIANGLES);           // Begin drawing the pyramid with 4 triangles
-      // Front
-      glColor3f(1.0f, 0.0f, 0.0f);     // Red
-      glVertex3f( 0.0f, 1.0f, 0.0f);
-      glColor3f(0.0f, 1.0f, 0.0f);     // Green
-      glVertex3f(-1.0f, -1.0f, 1.0f);
-      glColor3f(0.0f, 0.0f, 1.0f);     // Blue
-      glVertex3f(1.0f, -1.0f, 1.0f);
- 
-      // Right
-      glColor3f(1.0f, 0.0f, 0.0f);     // Red
-      glVertex3f(0.0f, 1.0f, 0.0f);
-      glColor3f(0.0f, 0.0f, 1.0f);     // Blue
-      glVertex3f(1.0f, -1.0f, 1.0f);
-      glColor3f(0.0f, 1.0f, 0.0f);     // Green
-      glVertex3f(1.0f, -1.0f, -1.0f);
- 
-      // Back
-      glColor3f(1.0f, 0.0f, 0.0f);     // Red
-      glVertex3f(0.0f, 1.0f, 0.0f);
-      glColor3f(0.0f, 1.0f, 0.0f);     // Green
-      glVertex3f(1.0f, -1.0f, -1.0f);
-      glColor3f(0.0f, 0.0f, 1.0f);     // Blue
-      glVertex3f(-1.0f, -1.0f, -1.0f);
- 
-      // Left
-      glColor3f(1.0f,0.0f,0.0f);       // Red
-      glVertex3f( 0.0f, 1.0f, 0.0f);
-      glColor3f(0.0f,0.0f,1.0f);       // Blue
-      glVertex3f(-1.0f,-1.0f,-1.0f);
-      glColor3f(0.0f,1.0f,0.0f);       // Green
-      glVertex3f(-1.0f,-1.0f, 1.0f);
-   glEnd();   // Done drawing the pyramid
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glRotated(rotx, 1, 0, 0);
+	glRotated(roty, 0, 1, 0);
+	glTranslated(-posx, -posy, -posz);
+	for (int z=0; z<MAP_DIMENSION; z++) {
+		for (int y=0; y<MAP_DIMENSION; y++) {
+			for (int x=0; x<MAP_DIMENSION; x++) {
+				glPushMatrix();
+				glTranslated(x, y, z);
+				if (map[z][y][x] != BLOCK_EMPTY) {
+					draw_block(0, 2, 3, 3, 3, 3);
+				}
+				glPopMatrix();
+			}
+		}
+	}
 	HDC hdc = GetDC(hwnd);
-    SwapBuffers(hdc);
+	SwapBuffers(hdc);
 	ReleaseDC(hwnd, hdc);
 }
 
@@ -243,6 +218,19 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	int center_y = rect.top + (rect.bottom - rect.top) / 2;
 	SetCursorPos(center_x, center_y);
 
+	memset(map, BLOCK_EMPTY, sizeof(map));
+	for (int x=0; x<MAP_DIMENSION; x++) {
+		for (int z=0; z<MAP_DIMENSION; z++) {
+			map[z][0][x] = BLOCK_STONE;
+			map[z][1][x] = BLOCK_DIRT;
+			map[z][2][x] = BLOCK_GRASS;
+		}
+	}
+
+	posx = MAP_DIMENSION / 2;
+	posy = MAP_DIMENSION / 2;
+	posz = MAP_DIMENSION / 2;
+
 	MSG msg = {0};
 	while (true) {
 		while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
@@ -265,20 +253,27 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 		#define MOVE_SPEED 0.3
 		if (GetAsyncKeyState('Z')) {
-			posx -= sin(roty * M_PI / 180) * MOVE_SPEED;
-			posy += cos(roty * M_PI / 180) * MOVE_SPEED;
+			posx += sin(roty * M_PI / 180) * MOVE_SPEED;
+			posz -= cos(roty * M_PI / 180) * MOVE_SPEED;
 		}
 		if (GetAsyncKeyState('S')) {
-			posx += sin(roty * M_PI / 180) * MOVE_SPEED;
-			posy -= cos(roty * M_PI / 180) * MOVE_SPEED;
+			posx -= sin(roty * M_PI / 180) * MOVE_SPEED;
+			posz += cos(roty * M_PI / 180) * MOVE_SPEED;
 		}
 		if (GetAsyncKeyState('Q')) {
-			posx += cos(roty * M_PI / 180) * MOVE_SPEED;
-			posy += sin(roty * M_PI / 180) * MOVE_SPEED;
+			posx -= cos(roty * M_PI / 180) * MOVE_SPEED;
+			posz -= sin(roty * M_PI / 180) * MOVE_SPEED;
 		}
 		if (GetAsyncKeyState('D')) {
-			posx -= cos(roty * M_PI / 180) * MOVE_SPEED;
-			posy -= sin(roty * M_PI / 180) * MOVE_SPEED;
+			posx += cos(roty * M_PI / 180) * MOVE_SPEED;
+			posz += sin(roty * M_PI / 180) * MOVE_SPEED;
+		}
+
+		if (posx<0 || posx>=MAP_DIMENSION ||
+			posy<0 || posy>=MAP_DIMENSION ||
+			posz<0 || posz>=MAP_DIMENSION ||
+			map[(int)posz][(int)posy-2][(int)posx] == BLOCK_EMPTY) {
+			posy -= MOVE_SPEED;
 		}
 
 		display();
