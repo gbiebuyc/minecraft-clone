@@ -19,6 +19,7 @@ double seconds;
 double rotx, roty;
 double posx, posy, posz;
 uint8_t map[MAP_DIMENSION][MAP_DIMENSION][MAP_DIMENSION];
+int screenWidth, screenHeight;
 
 void draw_block(int top, int bottom, int front, int back, int left, int right) {
 	double x, y;
@@ -94,7 +95,39 @@ void draw_block(int top, int bottom, int front, int back, int left, int right) {
 	glEnd();
 }
 
-void display() {
+void draw_crosshair() {
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_DEPTH_TEST);
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glScaled(1.0/screenWidth, 1.0/screenHeight, 1);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glColor4f(0, 0, 0, 0.7); // Black
+	glBegin(GL_QUADS);
+
+	glVertex2d(-16,  2);
+	glVertex2d( 16,  2);
+	glVertex2d( 16, -2);
+	glVertex2d(-16, -2);
+
+	glVertex2d(-2,  16);
+	glVertex2d( 2,  16);
+	glVertex2d( 2, -16);
+	glVertex2d(-2, -16);
+
+	glEnd();
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glEnable(GL_TEXTURE_2D);
+	glEnable(GL_DEPTH_TEST);
+}
+
+void draw() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -113,6 +146,7 @@ void display() {
 			}
 		}
 	}
+	draw_crosshair();
 	HDC hdc = GetDC(hwnd);
 	SwapBuffers(hdc);
 	ReleaseDC(hwnd, hdc);
@@ -129,11 +163,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			}
 			return 0;
 	    case WM_SIZE: {
-			int width = LOWORD(lParam);
-			int height = HIWORD(lParam);
-			if (height == 0) height = 1; // To prevent divide by 0
-			GLfloat aspect = (GLfloat)width / (GLfloat)height;
-			glViewport(0, 0, width, height);
+			screenWidth = LOWORD(lParam);
+			screenHeight = HIWORD(lParam);
+			if (screenHeight == 0) screenHeight = 1; // To prevent divide by 0
+			GLfloat aspect = (GLfloat)screenWidth / (GLfloat)screenHeight;
+			glViewport(0, 0, screenWidth, screenHeight);
 			glMatrixMode(GL_PROJECTION);
 			glLoadIdentity();
 			gluPerspective(45.0f, aspect, 0.1f, 100.0f);
@@ -228,11 +262,21 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	}
 
 	posx = MAP_DIMENSION / 2;
-	posy = MAP_DIMENSION / 2;
 	posz = MAP_DIMENSION / 2;
+	posy = 0;
+	while (posy<MAP_DIMENSION &&
+		map[(int)posz][(int)posy][(int)posx] != BLOCK_EMPTY)
+	{
+		posy++;
+	}
+	posy += 2;
+
+	LARGE_INTEGER freq, start, end;
+	QueryPerformanceFrequency(&freq);
 
 	MSG msg = {0};
 	while (true) {
+		QueryPerformanceCounter(&start);
 		while (PeekMessage(&msg, 0, 0, 0, PM_REMOVE)) {
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
@@ -252,7 +296,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		SetCursorPos(center_x, center_y);
 
 		#define MOVE_SPEED 0.3
-		if (GetAsyncKeyState('Z')) {
+		if (GetAsyncKeyState('Z') || GetAsyncKeyState('W')) {
 			posx += sin(roty * M_PI / 180) * MOVE_SPEED;
 			posz -= cos(roty * M_PI / 180) * MOVE_SPEED;
 		}
@@ -260,7 +304,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			posx -= sin(roty * M_PI / 180) * MOVE_SPEED;
 			posz += cos(roty * M_PI / 180) * MOVE_SPEED;
 		}
-		if (GetAsyncKeyState('Q')) {
+		if (GetAsyncKeyState('Q') || GetAsyncKeyState('A')) {
 			posx -= cos(roty * M_PI / 180) * MOVE_SPEED;
 			posz -= sin(roty * M_PI / 180) * MOVE_SPEED;
 		}
@@ -276,10 +320,16 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			posy -= MOVE_SPEED;
 		}
 
-		display();
+		draw();
 		PostMessage(hwnd, WM_PAINT, 0, 0);
-		Sleep(16);
-		seconds += 0.016;
+
+		QueryPerformanceCounter(&end);
+		double elapsed_sec = ((double)(end.QuadPart - start.QuadPart)) / freq.QuadPart;
+		int sleep_millisec = (1.0/60 - elapsed_sec) * 1000;
+		if (sleep_millisec > 0) {
+			Sleep(sleep_millisec);
+		}
+		seconds += 1.0/60;
 	}
 
 End:
