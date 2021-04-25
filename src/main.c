@@ -29,68 +29,68 @@ void draw_block(int top, int bottom, int front, int back, int left, int right) {
 	x = top % 16;
 	y = top / 16;
 	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-	glVertex3f( 1.0f, 1.0f, -1.0f);
+	glVertex3f(1, 1, 0);
 	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-	glVertex3f(-1.0f, 1.0f, -1.0f);
+	glVertex3f(0, 1, 0);
 	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-	glVertex3f(-1.0f, 1.0f,  1.0f);
+	glVertex3f(0, 1, 1);
 	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-	glVertex3f( 1.0f, 1.0f,  1.0f);
+	glVertex3f(1, 1, 1);
 
 	x = bottom % 16;
 	y = bottom / 16;
 	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-	glVertex3f( 1.0f, -1.0f,  1.0f);
+	glVertex3f(1, 0, 1);
 	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-	glVertex3f(-1.0f, -1.0f,  1.0f);
+	glVertex3f(0, 0, 1);
 	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-	glVertex3f(-1.0f, -1.0f, -1.0f);
+	glVertex3f(0, 0, 0);
 	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-	glVertex3f( 1.0f, -1.0f, -1.0f);
+	glVertex3f(1, 0, 0);
 
 	x = front % 16;
 	y = front / 16;
 	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-	glVertex3f( 1.0f,  1.0f, 1.0f);
+	glVertex3f(1, 1, 1);
 	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-	glVertex3f(-1.0f,  1.0f, 1.0f);
+	glVertex3f(0, 1, 1);
 	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-	glVertex3f(-1.0f, -1.0f, 1.0f);
+	glVertex3f(0, 0, 1);
 	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-	glVertex3f( 1.0f, -1.0f, 1.0f);
+	glVertex3f(1, 0, 1);
 
 	x = back % 16;
 	y = back / 16;
 	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-	glVertex3f(-1.0f,  1.0f, -1.0f);
+	glVertex3f(0, 1, 0);
 	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-	glVertex3f( 1.0f,  1.0f, -1.0f);
+	glVertex3f(1, 1, 0);
 	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-	glVertex3f( 1.0f, -1.0f, -1.0f);
+	glVertex3f(1, 0, 0);
 	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-	glVertex3f(-1.0f, -1.0f, -1.0f);
+	glVertex3f(0, 0, 0);
 
 	x = left % 16;
 	y = left / 16;
 	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-	glVertex3f(-1.0f,  1.0f,  1.0f);
+	glVertex3f(0, 1, 1);
 	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-	glVertex3f(-1.0f,  1.0f, -1.0f);
+	glVertex3f(0, 1, 0);
 	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-	glVertex3f(-1.0f, -1.0f, -1.0f);
+	glVertex3f(0, 0, 0);
 	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-	glVertex3f(-1.0f, -1.0f,  1.0f);
+	glVertex3f(0, 0, 1);
 
 	x = right % 16;
 	y = right / 16;
 	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
-	glVertex3f(1.0f,  1.0f, -1.0f);
+	glVertex3f(1, 1, 0);
 	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
-	glVertex3f(1.0f,  1.0f,  1.0f);
+	glVertex3f(1, 1, 1);
 	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
-	glVertex3f(1.0f, -1.0f,  1.0f);
+	glVertex3f(1, 0, 1);
 	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
-	glVertex3f(1.0f, -1.0f, -1.0f);
+	glVertex3f(1, 0, 0);
 
 	glEnd();
 }
@@ -313,10 +313,11 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			posz += sin(roty * M_PI / 180) * MOVE_SPEED;
 		}
 
+		#define CAM_HEIGHT 1.5
 		if (posx<0 || posx>=MAP_DIMENSION ||
 			posy<0 || posy>=MAP_DIMENSION ||
 			posz<0 || posz>=MAP_DIMENSION ||
-			map[(int)posz][(int)posy-2][(int)posx] == BLOCK_EMPTY) {
+			map[(int)posz][(int)(posy-CAM_HEIGHT)][(int)posx] == BLOCK_EMPTY) {
 			posy -= MOVE_SPEED;
 		}
 
