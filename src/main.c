@@ -10,6 +10,9 @@
 #define FOV 70
 #define MAP_DIMENSION 64
 #define REACH_DISTANCE 8
+#define COLLISION_DIST 0.4
+#define CAM_HEIGHT 1.5
+#define JUMP_SPEED 0.16
 enum {
 	BLOCK_EMPTY,
 	BLOCK_STONE,
@@ -20,11 +23,19 @@ HWND hwnd;
 double seconds;
 double rotX, rotY;
 double posX, posY, posZ;
+double speedY;
+bool isTouchingTheGround;
 uint8_t map[MAP_DIMENSION][MAP_DIMENSION][MAP_DIMENSION];
 int screenWidth, screenHeight;
 int targetX, targetY, targetZ;
 int targetPlaceX, targetPlaceY, targetPlaceZ;
 bool isBlockSelected;
+
+bool isInsideMap(int x, int y, int z) {
+	return (x>=0 && x<MAP_DIMENSION &&
+		y>=0 && y<MAP_DIMENSION &&
+		z>=0 && z<MAP_DIMENSION);
+}
 
 void draw_block(int top, int bottom, int front, int back, int left, int right) {
 	double x, y;
@@ -164,11 +175,10 @@ void raycast() {
 	while (true) {
 		double smallestSideDist = fmin(fmin(sideDistX, sideDistY), sideDistZ);
 		if (smallestSideDist > REACH_DISTANCE ||
-			targetX<0 || targetX>=MAP_DIMENSION ||
-			targetY<0 || targetY>=MAP_DIMENSION ||
-			targetZ<0 || targetZ>=MAP_DIMENSION)
+			!isInsideMap(targetX, targetY, targetZ))
 			break;
 		if (map[targetZ][targetY][targetX] != BLOCK_EMPTY) {
+			// Ray has hit a block
 			isBlockSelected = true;
 			targetPlaceX = targetX + ((side==0) ? -stepX : 0);
 			targetPlaceY = targetY + ((side==1) ? -stepY : 0);
@@ -232,16 +242,73 @@ void draw() {
 	ReleaseDC(hwnd, hdc);
 }
 
+void collision(int y) {
+	for (int dx=-1; dx<=1; dx++) {
+		for (int dz=-1; dz<=1; dz++) {
+			if (dx==0 && dz==0)
+				continue;
+			int x = posX + dx;
+			int z = posZ + dz;
+			if (!isInsideMap(x, y, z))
+				continue;
+			if (map[z][y][x] == BLOCK_EMPTY)
+				continue;
+			double closestX = fmin(fmax(posX, x), x+1);
+			double closestZ = fmin(fmax(posZ, z), z+1);
+			double distX = posX - closestX;
+			double distZ = posZ - closestZ;
+			double dist = sqrt(distX*distX + distZ*distZ);
+			if (dist < COLLISION_DIST) {
+				posX = closestX + distX * COLLISION_DIST / dist;
+				posZ = closestZ + distZ * COLLISION_DIST / dist;
+			}
+		}
+	}
+}
+
+void collision_vertical() {
+	int y = posY + speedY + ((speedY<0) ? -CAM_HEIGHT : 0);
+	// printf("posY=%f y=%d\n", posY, y); fflush(stdout);
+	for (int dx=-1; dx<=1; dx++) {
+		for (int dz=-1; dz<=1; dz++) {
+			int x = posX + dx;
+			int z = posZ + dz;
+			if (!isInsideMap(x, y, z))
+				continue;
+			if (map[z][y][x] == BLOCK_EMPTY)
+				continue;
+			double closestX = fmin(fmax(posX, x), x+1);
+			double closestZ = fmin(fmax(posZ, z), z+1);
+			double distX = posX - closestX;
+			double distZ = posZ - closestZ;
+			double dist = sqrt(distX*distX + distZ*distZ);
+			if (dist < COLLISION_DIST-0.1) {
+				isTouchingTheGround = true;
+				speedY = 0;
+				return;
+			}
+		}
+	}
+	isTouchingTheGround = false;
+	posY += speedY;
+}
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
 		case WM_DESTROY:
-		    PostQuitMessage(0);
-		    return 0;
-		case WM_KEYDOWN:
-			if (wParam == VK_ESCAPE) {
-			    PostQuitMessage(0);
-			}
+			PostQuitMessage(0);
 			return 0;
+		case WM_KEYDOWN:
+			switch (wParam) {
+			case VK_ESCAPE:
+				PostQuitMessage(0);
+				return 0;
+			case VK_SPACE:
+				if (isTouchingTheGround)
+					speedY = JUMP_SPEED;
+				return 0;
+			}
+			break;
 		case WM_LBUTTONDOWN:
 			if (isBlockSelected)
 				map[targetZ][targetY][targetX] = BLOCK_EMPTY;
@@ -250,7 +317,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			if (isBlockSelected)
 				map[targetPlaceZ][targetPlaceY][targetPlaceX] = BLOCK_STONE;
 			return 0;
-	    case WM_SIZE: {
+		case WM_SIZE: {
 			screenWidth = LOWORD(lParam);
 			screenHeight = HIWORD(lParam);
 			if (screenHeight == 0) screenHeight = 1; // To prevent divide by 0
@@ -405,13 +472,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			posZ += sin(rotY) * MOVE_SPEED;
 		}
 
-		#define CAM_HEIGHT 1.5
-		if (posX<0 || posX>=MAP_DIMENSION ||
-			posY<0 || posY>=MAP_DIMENSION ||
-			posZ<0 || posZ>=MAP_DIMENSION ||
-			map[(int)posZ][(int)(posY-CAM_HEIGHT)][(int)posX] == BLOCK_EMPTY) {
-			posY -= MOVE_SPEED;
-		}
+		speedY -= 0.01;
+		collision(posY);
+		collision(posY-CAM_HEIGHT);
+		collision_vertical();
 
 		draw();
 		PostMessage(hwnd, WM_PAINT, 0, 0);
