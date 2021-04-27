@@ -8,6 +8,7 @@
 #include <fcntl.h>
 
 #define MAP_DIMENSION 64
+#define REACH_DISTANCE 8
 enum {
 	BLOCK_EMPTY,
 	BLOCK_STONE,
@@ -16,10 +17,12 @@ enum {
 };
 HWND hwnd;
 double seconds;
-double rotx, roty;
-double posx, posy, posz;
+double rotX, rotY;
+double posX, posY, posZ;
 uint8_t map[MAP_DIMENSION][MAP_DIMENSION][MAP_DIMENSION];
 int screenWidth, screenHeight;
+int targetX, targetY, targetZ;
+bool isBlockSelected;
 
 void draw_block(int top, int bottom, int front, int back, int left, int right) {
 	double x, y;
@@ -127,19 +130,84 @@ void draw_crosshair() {
 	glEnable(GL_DEPTH_TEST);
 }
 
+void raycast() {
+	double deltaDistX = fabs(1.0 / cos(rotX) / sin(rotY));
+	double deltaDistY = fabs(1.0 / sin(rotX));
+	double deltaDistZ = fabs(1.0 / cos(rotX) / cos(rotY));
+	// printf("%.1f %.1f %.1f  ", deltaDistX, deltaDistY, deltaDistZ);
+	targetX = (int)posX;
+	targetY = (int)posY;
+	targetZ = (int)posZ;
+	isBlockSelected = false;
+	double sideDistX, sideDistY, sideDistZ;
+	int stepX, stepY, stepZ;
+	int side;
+	if (sin(rotY) < 0) {
+		stepX = -1;
+		sideDistX = (posX - targetX) * deltaDistX;
+	} else {
+		stepX = 1;
+		sideDistX = (targetX + 1.0 - posX) * deltaDistX;
+	}
+	if (sin(rotX) > 0) {
+		stepY = -1;
+		sideDistY = (posY - targetY) * deltaDistY;
+	} else {
+		stepY = 1;
+		sideDistY = (targetY + 1.0 - posY) * deltaDistY;
+	}
+	if (cos(rotY) > 0) {
+		stepZ = -1;
+		sideDistZ = (posZ - targetZ) * deltaDistZ;
+	} else {
+		stepZ = 1;
+		sideDistZ = (targetZ + 1.0 - posZ) * deltaDistZ;
+	}
+	while (true) {
+		double smallestSideDist = fmin(fmin(sideDistX, sideDistY), sideDistZ);
+		if (smallestSideDist > REACH_DISTANCE ||
+			targetX<0 || targetX>=MAP_DIMENSION ||
+			targetY<0 || targetY>=MAP_DIMENSION ||
+			targetZ<0 || targetZ>=MAP_DIMENSION)
+			break;
+		if (map[targetZ][targetY][targetX] != BLOCK_EMPTY) {
+			isBlockSelected = true;
+			break;
+		}
+		if (smallestSideDist == sideDistX) {
+			sideDistX += deltaDistX;
+			targetX += stepX;
+			side = 0;
+		} else if (smallestSideDist == sideDistY) {
+			sideDistY += deltaDistY;
+			targetY += stepY;
+			side = 1;
+		} else if (smallestSideDist == sideDistZ) {
+			sideDistZ += deltaDistZ;
+			targetZ += stepZ;
+			side = 2;
+		}
+		// printf("%d %d %d, ", targetX, targetY, targetZ);
+	}
+	// printf("\n"); fflush(stdout);
+}
+
 void draw() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	glRotated(rotx, 1, 0, 0);
-	glRotated(roty, 0, 1, 0);
-	glTranslated(-posx, -posy, -posz);
+	glRotated(rotX * 180 / M_PI, 1, 0, 0);
+	glRotated(rotY * 180 / M_PI, 0, 1, 0);
+	glTranslated(-posX, -posY, -posZ);
 	for (int z=0; z<MAP_DIMENSION; z++) {
 		for (int y=0; y<MAP_DIMENSION; y++) {
 			for (int x=0; x<MAP_DIMENSION; x++) {
 				glPushMatrix();
 				glTranslated(x, y, z);
 				if (map[z][y][x] != BLOCK_EMPTY) {
+					if (x==targetX && y==targetY && z==targetZ) {
+						draw_block(14, 14, 14, 14, 14, 14);
+					} else
 					draw_block(0, 2, 3, 3, 3, 3);
 				}
 				glPopMatrix();
@@ -261,15 +329,15 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		}
 	}
 
-	posx = MAP_DIMENSION / 2;
-	posz = MAP_DIMENSION / 2;
-	posy = 0;
-	while (posy<MAP_DIMENSION &&
-		map[(int)posz][(int)posy][(int)posx] != BLOCK_EMPTY)
+	posX = MAP_DIMENSION / 2;
+	posZ = MAP_DIMENSION / 2;
+	posY = 0;
+	while (posY<MAP_DIMENSION &&
+		map[(int)posZ][(int)posY][(int)posX] != BLOCK_EMPTY)
 	{
-		posy++;
+		posY++;
 	}
-	posy += 2;
+	posY += 2;
 
 	LARGE_INTEGER freq, start, end;
 	QueryPerformanceFrequency(&freq);
@@ -290,35 +358,37 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		int center_y = rect.top + (rect.bottom - rect.top) / 2;
 		POINT p;
 		GetCursorPos(&p);
-		#define ROT_SPEED 0.1
-		roty += (p.x - center_x) * ROT_SPEED;
-		rotx += (p.y - center_y) * ROT_SPEED;
+		#define ROT_SPEED 0.003
+		rotY += (p.x - center_x) * ROT_SPEED;
+		rotX += (p.y - center_y) * ROT_SPEED;
+		rotX = fmin(fmax(rotX, -1.5), 1.5);
 		SetCursorPos(center_x, center_y);
+		raycast();
 
 		#define MOVE_SPEED 0.3
 		if (GetAsyncKeyState('Z') || GetAsyncKeyState('W')) {
-			posx += sin(roty * M_PI / 180) * MOVE_SPEED;
-			posz -= cos(roty * M_PI / 180) * MOVE_SPEED;
+			posX += sin(rotY) * MOVE_SPEED;
+			posZ -= cos(rotY) * MOVE_SPEED;
 		}
 		if (GetAsyncKeyState('S')) {
-			posx -= sin(roty * M_PI / 180) * MOVE_SPEED;
-			posz += cos(roty * M_PI / 180) * MOVE_SPEED;
+			posX -= sin(rotY) * MOVE_SPEED;
+			posZ += cos(rotY) * MOVE_SPEED;
 		}
 		if (GetAsyncKeyState('Q') || GetAsyncKeyState('A')) {
-			posx -= cos(roty * M_PI / 180) * MOVE_SPEED;
-			posz -= sin(roty * M_PI / 180) * MOVE_SPEED;
+			posX -= cos(rotY) * MOVE_SPEED;
+			posZ -= sin(rotY) * MOVE_SPEED;
 		}
 		if (GetAsyncKeyState('D')) {
-			posx += cos(roty * M_PI / 180) * MOVE_SPEED;
-			posz += sin(roty * M_PI / 180) * MOVE_SPEED;
+			posX += cos(rotY) * MOVE_SPEED;
+			posZ += sin(rotY) * MOVE_SPEED;
 		}
 
 		#define CAM_HEIGHT 1.5
-		if (posx<0 || posx>=MAP_DIMENSION ||
-			posy<0 || posy>=MAP_DIMENSION ||
-			posz<0 || posz>=MAP_DIMENSION ||
-			map[(int)posz][(int)(posy-CAM_HEIGHT)][(int)posx] == BLOCK_EMPTY) {
-			posy -= MOVE_SPEED;
+		if (posX<0 || posX>=MAP_DIMENSION ||
+			posY<0 || posY>=MAP_DIMENSION ||
+			posZ<0 || posZ>=MAP_DIMENSION ||
+			map[(int)posZ][(int)(posY-CAM_HEIGHT)][(int)posX] == BLOCK_EMPTY) {
+			posY -= MOVE_SPEED;
 		}
 
 		draw();
