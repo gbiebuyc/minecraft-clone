@@ -7,6 +7,7 @@
 #include <math.h>
 #include <fcntl.h>
 
+#define FOV 70
 #define MAP_DIMENSION 64
 #define REACH_DISTANCE 8
 enum {
@@ -22,11 +23,11 @@ double posX, posY, posZ;
 uint8_t map[MAP_DIMENSION][MAP_DIMENSION][MAP_DIMENSION];
 int screenWidth, screenHeight;
 int targetX, targetY, targetZ;
+int targetPlaceX, targetPlaceY, targetPlaceZ;
 bool isBlockSelected;
 
 void draw_block(int top, int bottom, int front, int back, int left, int right) {
 	double x, y;
-	glColor3f(1.0f, 1.0f, 1.0f); // White
 	glBegin(GL_QUADS);
 
 	x = top % 16;
@@ -107,8 +108,6 @@ void draw_crosshair() {
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glScaled(1.0/screenWidth, 1.0/screenHeight, 1);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glColor4f(0, 0, 0, 0.7); // Black
 	glBegin(GL_QUADS);
 
@@ -126,7 +125,6 @@ void draw_crosshair() {
 	glMatrixMode(GL_PROJECTION);
 	glPopMatrix();
 	glMatrixMode(GL_MODELVIEW);
-	glEnable(GL_TEXTURE_2D);
 	glEnable(GL_DEPTH_TEST);
 }
 
@@ -172,6 +170,9 @@ void raycast() {
 			break;
 		if (map[targetZ][targetY][targetX] != BLOCK_EMPTY) {
 			isBlockSelected = true;
+			targetPlaceX = targetX + ((side==0) ? -stepX : 0);
+			targetPlaceY = targetY + ((side==1) ? -stepY : 0);
+			targetPlaceZ = targetZ + ((side==2) ? -stepZ : 0);
 			break;
 		}
 		if (smallestSideDist == sideDistX) {
@@ -202,13 +203,24 @@ void draw() {
 	for (int z=0; z<MAP_DIMENSION; z++) {
 		for (int y=0; y<MAP_DIMENSION; y++) {
 			for (int x=0; x<MAP_DIMENSION; x++) {
+				if (map[z][y][x] == BLOCK_EMPTY)
+					continue;
 				glPushMatrix();
 				glTranslated(x, y, z);
-				if (map[z][y][x] != BLOCK_EMPTY) {
-					if (x==targetX && y==targetY && z==targetZ) {
-						draw_block(14, 14, 14, 14, 14, 14);
-					} else
-					draw_block(0, 2, 3, 3, 3, 3);
+				glColor3f(1, 1, 1); // White
+				glEnable(GL_TEXTURE_2D);
+				switch (map[z][y][x]) {
+				case BLOCK_STONE: draw_block(1, 1, 1, 1, 1, 1); break;
+				case BLOCK_DIRT:  draw_block(2, 2, 2, 2, 2, 2); break;
+				case BLOCK_GRASS: draw_block(0, 2, 3, 3, 3, 3); break;
+				}
+				if (isBlockSelected && x==targetX && y==targetY && z==targetZ) {
+					glDisable(GL_TEXTURE_2D);
+					glLineWidth(2);
+					glColor4f(0, 0, 0, 0.7); // Black
+					glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+					draw_block(14, 14, 14, 14, 14, 14);
+					glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 				}
 				glPopMatrix();
 			}
@@ -230,6 +242,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			    PostQuitMessage(0);
 			}
 			return 0;
+		case WM_LBUTTONDOWN:
+			if (isBlockSelected)
+				map[targetZ][targetY][targetX] = BLOCK_EMPTY;
+			return 0;
+		case WM_RBUTTONDOWN:
+			if (isBlockSelected)
+				map[targetPlaceZ][targetPlaceY][targetPlaceX] = BLOCK_STONE;
+			return 0;
 	    case WM_SIZE: {
 			screenWidth = LOWORD(lParam);
 			screenHeight = HIWORD(lParam);
@@ -238,7 +258,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			glViewport(0, 0, screenWidth, screenHeight);
 			glMatrixMode(GL_PROJECTION);
 			glLoadIdentity();
-			gluPerspective(45.0f, aspect, 0.1f, 100.0f);
+			gluPerspective(FOV, aspect, 0.1f, 100.0f);
 			return 0;
 		}
 	}
@@ -310,6 +330,8 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glEnable(GL_TEXTURE_2D);
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	ShowWindow(hwnd, cmdshow);
 
@@ -358,14 +380,14 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		int center_y = rect.top + (rect.bottom - rect.top) / 2;
 		POINT p;
 		GetCursorPos(&p);
-		#define ROT_SPEED 0.003
+		#define ROT_SPEED 0.002
 		rotY += (p.x - center_x) * ROT_SPEED;
 		rotX += (p.y - center_y) * ROT_SPEED;
 		rotX = fmin(fmax(rotX, -1.5), 1.5);
 		SetCursorPos(center_x, center_y);
 		raycast();
 
-		#define MOVE_SPEED 0.3
+		#define MOVE_SPEED 0.1
 		if (GetAsyncKeyState('Z') || GetAsyncKeyState('W')) {
 			posX += sin(rotY) * MOVE_SPEED;
 			posZ -= cos(rotY) * MOVE_SPEED;
