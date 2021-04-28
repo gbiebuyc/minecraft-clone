@@ -301,28 +301,78 @@ void collision_vertical() {
 	posY += speedY;
 }
 
+void get_window_center(POINT *center) {
+	RECT rect;
+	GetWindowRect(hwnd, &rect);
+	center->x = (rect.left + rect.right) / 2;
+	center->y = (rect.top + rect.bottom) / 2;
+}
+
+void handle_input() {
+	if (GetForegroundWindow() != hwnd)
+		return;
+	// Mouse
+	POINT center, cursor;
+	get_window_center(&center);
+	GetCursorPos(&cursor);
+	#define ROT_SPEED 0.002
+	rotY += (cursor.x - center.x) * ROT_SPEED;
+	rotX += (cursor.y - center.y) * ROT_SPEED;
+	rotX = fmin(fmax(rotX, -1.5), 1.5);
+	SetCursorPos(center.x, center.y);
+	// Keyboard
+	#define MOVE_SPEED 0.1
+	if (GetAsyncKeyState('Z') || GetAsyncKeyState('W')) {
+		posX += sin(rotY) * MOVE_SPEED;
+		posZ -= cos(rotY) * MOVE_SPEED;
+	}
+	if (GetAsyncKeyState('S')) {
+		posX -= sin(rotY) * MOVE_SPEED;
+		posZ += cos(rotY) * MOVE_SPEED;
+	}
+	if (GetAsyncKeyState('Q') || GetAsyncKeyState('A')) {
+		posX -= cos(rotY) * MOVE_SPEED;
+		posZ -= sin(rotY) * MOVE_SPEED;
+	}
+	if (GetAsyncKeyState('D')) {
+		posX += cos(rotY) * MOVE_SPEED;
+		posZ += sin(rotY) * MOVE_SPEED;
+	}
+}
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
 		case WM_DESTROY:
 			PostQuitMessage(0);
-			return 0;
+			break;
 		case WM_KEYDOWN:
 			switch (wParam) {
 			case VK_ESCAPE:
 				PostQuitMessage(0);
-				return 0;
+				break;
 			case VK_SPACE:
 				if (isTouchingTheGround)
 					speedY = JUMP_SPEED;
-				return 0;
+				break;
 			}
 			break;
+		case WM_SETFOCUS: {
+			POINT center;
+			get_window_center(&center);
+			SetCursorPos(center.x, center.y);
+			ShowCursor(false);
+			break;
+		}
+		case WM_KILLFOCUS: {
+			ShowCursor(true);
+			break;
+		}
 		case WM_LBUTTONDOWN:
 			if (isBlockSelected) {
 				// Destroy a block
 				map[targetZ][targetY][targetX] = BLOCK_EMPTY;
 			}
-			return 0;
+			break;
 		case WM_RBUTTONDOWN:
 			if (isBlockSelected &&
 				(dist_to_block(targetPlaceX, targetPlaceZ) > COLLISION_DIST-0.1 ||
@@ -332,7 +382,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				// Place a block
 				map[targetPlaceZ][targetPlaceY][targetPlaceX] = BLOCK_STONE;
 			}
-			return 0;
+			break;
 		case WM_SIZE: {
 			screenWidth = LOWORD(lParam);
 			screenHeight = HIWORD(lParam);
@@ -342,7 +392,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			glMatrixMode(GL_PROJECTION);
 			glLoadIdentity();
 			gluPerspective(FOV, aspect, 0.1f, 100.0f);
-			return 0;
+			break;
 		}
 	}
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
@@ -418,13 +468,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 
 	ShowWindow(hwnd, cmdshow);
 
-	ShowCursor(false);
-	RECT rect;
-	GetWindowRect(hwnd, &rect);
-	int center_x = rect.left + (rect.right - rect.left) / 2;
-	int center_y = rect.top + (rect.bottom - rect.top) / 2;
-	SetCursorPos(center_x, center_y);
-
 	memset(map, BLOCK_EMPTY, sizeof(map));
 	for (int x=0; x<MAP_DIMENSION; x++) {
 		for (int z=0; z<MAP_DIMENSION; z++) {
@@ -458,39 +501,13 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			}
 		}
 
-		GetWindowRect(hwnd, &rect);
-		int center_x = rect.left + (rect.right - rect.left) / 2;
-		int center_y = rect.top + (rect.bottom - rect.top) / 2;
-		POINT p;
-		GetCursorPos(&p);
-		#define ROT_SPEED 0.002
-		rotY += (p.x - center_x) * ROT_SPEED;
-		rotX += (p.y - center_y) * ROT_SPEED;
-		rotX = fmin(fmax(rotX, -1.5), 1.5);
-		SetCursorPos(center_x, center_y);
-		raycast();
-
-		#define MOVE_SPEED 0.1
-		if (GetAsyncKeyState('Z') || GetAsyncKeyState('W')) {
-			posX += sin(rotY) * MOVE_SPEED;
-			posZ -= cos(rotY) * MOVE_SPEED;
-		}
-		if (GetAsyncKeyState('S')) {
-			posX -= sin(rotY) * MOVE_SPEED;
-			posZ += cos(rotY) * MOVE_SPEED;
-		}
-		if (GetAsyncKeyState('Q') || GetAsyncKeyState('A')) {
-			posX -= cos(rotY) * MOVE_SPEED;
-			posZ -= sin(rotY) * MOVE_SPEED;
-		}
-		if (GetAsyncKeyState('D')) {
-			posX += cos(rotY) * MOVE_SPEED;
-			posZ += sin(rotY) * MOVE_SPEED;
-		}
+		handle_input();
 
 		speedY -= 0.01;
 		collision();
 		collision_vertical();
+
+		raycast();
 
 		draw();
 		PostMessage(hwnd, WM_PAINT, 0, 0);
