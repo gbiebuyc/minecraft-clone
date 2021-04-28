@@ -18,6 +18,8 @@ enum {
 	BLOCK_STONE,
 	BLOCK_DIRT,
 	BLOCK_GRASS,
+	BLOCK_PLANK,
+	NUM_BLOCKS,
 };
 HWND hwnd;
 double seconds;
@@ -27,9 +29,11 @@ double speedY;
 bool isTouchingTheGround;
 uint8_t map[MAP_DIMENSION][MAP_DIMENSION][MAP_DIMENSION];
 int screenWidth, screenHeight;
+double aspectRatio;
 int targetX, targetY, targetZ;
 int targetPlaceX, targetPlaceY, targetPlaceZ;
 bool isBlockSelected;
+int placeBlockType = BLOCK_STONE;
 
 bool isInsideMap(int x, int y, int z) {
 	return (x>=0 && x<MAP_DIMENSION &&
@@ -37,7 +41,7 @@ bool isInsideMap(int x, int y, int z) {
 		z>=0 && z<MAP_DIMENSION);
 }
 
-void draw_block(int top, int bottom, int front, int back, int left, int right) {
+void draw_block_faces(int top, int bottom, int front, int back, int left, int right) {
 	double x, y;
 	glBegin(GL_QUADS);
 
@@ -110,11 +114,30 @@ void draw_block(int top, int bottom, int front, int back, int left, int right) {
 	glEnd();
 }
 
+void draw_block(int block) {
+	glColor3f(1, 1, 1); // White
+	glEnable(GL_TEXTURE_2D);
+	switch (block) {
+	case BLOCK_STONE: draw_block_faces(1, 1, 1, 1, 1, 1); break;
+	case BLOCK_DIRT:  draw_block_faces(2, 2, 2, 2, 2, 2); break;
+	case BLOCK_GRASS: draw_block_faces(0, 2, 3, 3, 3, 3); break;
+	case BLOCK_PLANK: draw_block_faces(4, 4, 4, 4, 4, 4); break;
+	}
+}
+
+void draw_block_outline() {
+	glDisable(GL_TEXTURE_2D);
+	glLineWidth(2);
+	glColor4f(0, 0, 0, 0.7); // Black
+	glPolygonMode(GL_FRONT, GL_LINE);
+	draw_block_faces(0, 0, 0, 0, 0, 0);
+	glPolygonMode(GL_FRONT, GL_FILL);
+}
+
 void draw_crosshair() {
 	glDisable(GL_TEXTURE_2D);
 	glDisable(GL_DEPTH_TEST);
 	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
 	glLoadIdentity();
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -123,20 +146,32 @@ void draw_crosshair() {
 	glBegin(GL_QUADS);
 
 	glVertex2d(-16,  2);
-	glVertex2d( 16,  2);
-	glVertex2d( 16, -2);
 	glVertex2d(-16, -2);
+	glVertex2d( 16, -2);
+	glVertex2d( 16,  2);
 
 	glVertex2d(-2,  16);
-	glVertex2d( 2,  16);
-	glVertex2d( 2, -16);
 	glVertex2d(-2, -16);
+	glVertex2d( 2, -16);
+	glVertex2d( 2,  16);
 
 	glEnd();
+}
+
+void draw_block_ui_icon() {
+	glDisable(GL_DEPTH_TEST);
 	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
+	glLoadIdentity();
+	glOrtho(-aspectRatio, aspectRatio, -1, 1, -1, 1);
 	glMatrixMode(GL_MODELVIEW);
-	glEnable(GL_DEPTH_TEST);
+	glLoadIdentity();
+	glTranslated(aspectRatio-0.2, -0.8, 0);
+	#define SCALE 0.15
+	glScaled(SCALE, SCALE, SCALE);
+	glRotated(20, 1, 0, 0);
+	glRotated(45, 0, 1, 0);
+	glTranslated(-0.5, -0.5, -0.5);
+	draw_block(placeBlockType);
 }
 
 void raycast() {
@@ -205,6 +240,10 @@ void raycast() {
 
 void draw() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(FOV, aspectRatio, 0.1f, 100.0f);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 	glRotated(rotX * 180 / M_PI, 1, 0, 0);
@@ -217,26 +256,15 @@ void draw() {
 					continue;
 				glPushMatrix();
 				glTranslated(x, y, z);
-				glColor3f(1, 1, 1); // White
-				glEnable(GL_TEXTURE_2D);
-				switch (map[z][y][x]) {
-				case BLOCK_STONE: draw_block(1, 1, 1, 1, 1, 1); break;
-				case BLOCK_DIRT:  draw_block(2, 2, 2, 2, 2, 2); break;
-				case BLOCK_GRASS: draw_block(0, 2, 3, 3, 3, 3); break;
-				}
-				if (isBlockSelected && x==targetX && y==targetY && z==targetZ) {
-					glDisable(GL_TEXTURE_2D);
-					glLineWidth(2);
-					glColor4f(0, 0, 0, 0.7); // Black
-					glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-					draw_block(14, 14, 14, 14, 14, 14);
-					glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-				}
+				draw_block(map[z][y][x]);
+				if (isBlockSelected && x==targetX && y==targetY && z==targetZ)
+					draw_block_outline();
 				glPopMatrix();
 			}
 		}
 	}
 	draw_crosshair();
+	draw_block_ui_icon();
 	HDC hdc = GetDC(hwnd);
 	SwapBuffers(hdc);
 	ReleaseDC(hwnd, hdc);
@@ -380,18 +408,30 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				  targetPlaceY != (int)(posY-CAM_HEIGHT))))
 			{
 				// Place a block
-				map[targetPlaceZ][targetPlaceY][targetPlaceX] = BLOCK_STONE;
+				map[targetPlaceZ][targetPlaceY][targetPlaceX] = placeBlockType;
 			}
 			break;
+		case WM_MOUSEWHEEL: {
+			int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+			if (delta == 0)
+				break;
+			delta = delta > 0 ? -1 : 1;
+			do {
+				placeBlockType += delta;
+				if (placeBlockType < 0) {
+					placeBlockType += NUM_BLOCKS;
+				} else if (placeBlockType >= NUM_BLOCKS) {
+					placeBlockType -= NUM_BLOCKS;
+				}
+			} while (placeBlockType == BLOCK_EMPTY);
+			break;
+		}
 		case WM_SIZE: {
 			screenWidth = LOWORD(lParam);
 			screenHeight = HIWORD(lParam);
 			if (screenHeight == 0) screenHeight = 1; // To prevent divide by 0
-			GLfloat aspect = (GLfloat)screenWidth / (GLfloat)screenHeight;
+			aspectRatio = (double)screenWidth / (double)screenHeight;
 			glViewport(0, 0, screenWidth, screenHeight);
-			glMatrixMode(GL_PROJECTION);
-			glLoadIdentity();
-			gluPerspective(FOV, aspect, 0.1f, 100.0f);
 			break;
 		}
 	}
@@ -461,10 +501,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
                     GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glEnable(GL_TEXTURE_2D);
-	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
 
 	ShowWindow(hwnd, cmdshow);
 
