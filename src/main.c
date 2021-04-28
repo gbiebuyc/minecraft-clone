@@ -242,6 +242,15 @@ void draw() {
 	ReleaseDC(hwnd, hdc);
 }
 
+// Horizontal distance
+double dist_to_block(int x, int z) {
+	double closestX = fmin(fmax(posX, x), x+1);
+	double closestZ = fmin(fmax(posZ, z), z+1);
+	double distX = posX - closestX;
+	double distZ = posZ - closestZ;
+	return sqrt(distX*distX + distZ*distZ);
+}
+
 void collision() {
 	// Check direct adjacents before diagonals to avoid false collisions
 	// with corners when sliding against a straight line of blocks.
@@ -281,12 +290,7 @@ void collision_vertical() {
 				continue;
 			if (map[z][y][x] == BLOCK_EMPTY)
 				continue;
-			double closestX = fmin(fmax(posX, x), x+1);
-			double closestZ = fmin(fmax(posZ, z), z+1);
-			double distX = posX - closestX;
-			double distZ = posZ - closestZ;
-			double dist = sqrt(distX*distX + distZ*distZ);
-			if (dist < COLLISION_DIST-0.1) {
+			if (dist_to_block(x, z) < COLLISION_DIST-0.1) {
 				isTouchingTheGround = true;
 				speedY = 0;
 				return;
@@ -314,12 +318,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			}
 			break;
 		case WM_LBUTTONDOWN:
-			if (isBlockSelected)
+			if (isBlockSelected) {
+				// Destroy a block
 				map[targetZ][targetY][targetX] = BLOCK_EMPTY;
+			}
 			return 0;
 		case WM_RBUTTONDOWN:
-			if (isBlockSelected)
+			if (isBlockSelected &&
+				(dist_to_block(targetPlaceX, targetPlaceZ) > COLLISION_DIST-0.1 ||
+				 (targetPlaceY != (int)posY &&
+				  targetPlaceY != (int)(posY-CAM_HEIGHT))))
+			{
+				// Place a block
 				map[targetPlaceZ][targetPlaceY][targetPlaceX] = BLOCK_STONE;
+			}
 			return 0;
 		case WM_SIZE: {
 			screenWidth = LOWORD(lParam);
@@ -430,7 +442,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 	{
 		posY++;
 	}
-	posY += 2;
+	posY += CAM_HEIGHT + 0.01;
 
 	LARGE_INTEGER freq, start, end;
 	QueryPerformanceFrequency(&freq);
