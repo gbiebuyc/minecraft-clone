@@ -12,7 +12,7 @@
 #define REACH_DISTANCE 8
 #define COLLISION_DIST 0.4
 #define CAM_HEIGHT 1.5
-#define JUMP_SPEED 0.16
+#define JUMP_SPEED 0.18
 enum {
 	BLOCK_EMPTY,
 	BLOCK_STONE,
@@ -242,13 +242,17 @@ void draw() {
 	ReleaseDC(hwnd, hdc);
 }
 
-void collision(int y) {
-	for (int dx=-1; dx<=1; dx++) {
-		for (int dz=-1; dz<=1; dz++) {
-			if (dx==0 && dz==0)
-				continue;
-			int x = posX + dx;
-			int z = posZ + dz;
+void collision() {
+	// Check direct adjacents before diagonals to avoid false collisions
+	// with corners when sliding against a straight line of blocks.
+	const int adjacentsX[8] = {-1, 1, 0, 0,  -1,-1, 1, 1};
+	const int adjacentsZ[8] = { 0, 0,-1, 1,  -1, 1,-1, 1};
+	const double heights[2] = {0, -CAM_HEIGHT};
+	for (int i=0; i<8; i++) {
+		for (int h=0; h<2; h++) {
+			int x = posX + adjacentsX[i];
+			int z = posZ + adjacentsZ[i];
+			int y = posY + heights[h];
 			if (!isInsideMap(x, y, z))
 				continue;
 			if (map[z][y][x] == BLOCK_EMPTY)
@@ -473,8 +477,7 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 		}
 
 		speedY -= 0.01;
-		collision(posY);
-		collision(posY-CAM_HEIGHT);
+		collision();
 		collision_vertical();
 
 		draw();
