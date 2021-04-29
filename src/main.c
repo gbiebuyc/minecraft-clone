@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <math.h>
 #include <fcntl.h>
 
@@ -19,7 +20,15 @@ enum {
 	BLOCK_DIRT,
 	BLOCK_GRASS,
 	BLOCK_PLANK,
+	BLOCK_ROSE,
+	BLOCK_DANDELION,
 	NUM_BLOCKS,
+};
+bool isSolid[NUM_BLOCKS] = {
+	[BLOCK_STONE] = true,
+	[BLOCK_DIRT] = true,
+	[BLOCK_GRASS] = true,
+	[BLOCK_PLANK] = true,
 };
 HWND hwnd;
 double seconds;
@@ -42,6 +51,9 @@ bool isInsideMap(int x, int y, int z) {
 }
 
 void draw_block_faces(int top, int bottom, int front, int back, int left, int right) {
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
 	double x, y;
 	glBegin(GL_QUADS);
 
@@ -114,7 +126,38 @@ void draw_block_faces(int top, int bottom, int front, int back, int left, int ri
 	glEnd();
 }
 
-void draw_block(int block) {
+void draw_small_plant(int texture) {
+	glEnable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_ALPHA_TEST);
+	glAlphaFunc(GL_GREATER, 0);
+	double x, y;
+	glBegin(GL_QUADS);
+
+	x = texture % 16;
+	y = texture / 16;
+	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+	glVertex3f(1, 1, 1);
+	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+	glVertex3f(0, 1, 0);
+	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+	glVertex3f(0, 0, 0);
+	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
+	glVertex3f(1, 0, 1);
+
+	glTexCoord2d((x+1)/16.0, (y+0)/16.0);
+	glVertex3f(0, 1, 1);
+	glTexCoord2d((x+0)/16.0, (y+0)/16.0);
+	glVertex3f(1, 1, 0);
+	glTexCoord2d((x+0)/16.0, (y+1)/16.0);
+	glVertex3f(1, 0, 0);
+	glTexCoord2d((x+1)/16.0, (y+1)/16.0);
+	glVertex3f(0, 0, 1);
+
+	glEnd();
+}
+
+void draw_block(uint8_t block) {
 	glColor3f(1, 1, 1); // White
 	glEnable(GL_TEXTURE_2D);
 	switch (block) {
@@ -122,6 +165,8 @@ void draw_block(int block) {
 	case BLOCK_DIRT:  draw_block_faces(2, 2, 2, 2, 2, 2); break;
 	case BLOCK_GRASS: draw_block_faces(0, 2, 3, 3, 3, 3); break;
 	case BLOCK_PLANK: draw_block_faces(4, 4, 4, 4, 4, 4); break;
+	case BLOCK_ROSE:      draw_small_plant(12); break;
+	case BLOCK_DANDELION: draw_small_plant(13); break;
 	}
 }
 
@@ -137,6 +182,8 @@ void draw_block_outline() {
 void draw_crosshair() {
 	glDisable(GL_TEXTURE_2D);
 	glDisable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	glMatrixMode(GL_MODELVIEW);
@@ -292,7 +339,7 @@ void collision() {
 			int y = posY + heights[h];
 			if (!isInsideMap(x, y, z))
 				continue;
-			if (map[z][y][x] == BLOCK_EMPTY)
+			if (!isSolid[map[z][y][x]])
 				continue;
 			double closestX = fmin(fmax(posX, x), x+1);
 			double closestZ = fmin(fmax(posZ, z), z+1);
@@ -316,7 +363,7 @@ void collision_vertical() {
 			int z = posZ + dz;
 			if (!isInsideMap(x, y, z))
 				continue;
-			if (map[z][y][x] == BLOCK_EMPTY)
+			if (!isSolid[map[z][y][x]])
 				continue;
 			if (dist_to_block(x, z) < COLLISION_DIST-0.1) {
 				isTouchingTheGround = true;
@@ -501,10 +548,6 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
                     GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);
 
 	ShowWindow(hwnd, cmdshow);
 
@@ -514,6 +557,10 @@ int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmd
 			map[z][0][x] = BLOCK_STONE;
 			map[z][1][x] = BLOCK_DIRT;
 			map[z][2][x] = BLOCK_GRASS;
+			switch (rand() % 40) {
+			case 0: map[z][3][x] = BLOCK_ROSE; break;
+			case 1: map[z][3][x] = BLOCK_DANDELION; break;
+			}
 		}
 	}
 
